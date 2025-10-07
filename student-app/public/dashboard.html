@@ -1,0 +1,97 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <nav>
+        <a href="/">Home</a>
+        <a href="#" id="logout">Logout</a>
+      </nav>
+      <h1>Dashboard</h1>
+      <div id="welcome"></div>
+
+      <h2>Your Subjects</h2>
+      <div id="subjects"></div>
+
+      <h2>Lessons</h2>
+      <div id="lessons"></div>
+    </div>
+
+    <script>
+      const token = localStorage.getItem('token');
+      if (!token) {
+        window.location.href = '/login.html';
+      }
+
+      document.getElementById('logout').addEventListener('click', () => {
+        localStorage.removeItem('token');
+        window.location.href = '/';
+      });
+
+      async function fetchMe() {
+        const resp = await fetch('/api/auth/me', { headers: { Authorization: 'Bearer ' + token } });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || 'Failed');
+        return data.user;
+      }
+
+      async function fetchSubjects() {
+        const resp = await fetch('/api/subjects', { headers: { Authorization: 'Bearer ' + token } });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || 'Failed');
+        return data.subjects;
+      }
+
+      async function fetchLessons(subjectId) {
+        const resp = await fetch(`/api/subjects/${subjectId}/lessons`, { headers: { Authorization: 'Bearer ' + token } });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || 'Failed');
+        return data.lessons;
+      }
+
+      function renderSubjects(subjects) {
+        const container = document.getElementById('subjects');
+        container.innerHTML = '';
+        subjects.forEach((s) => {
+          const card = document.createElement('div');
+          card.className = 'card';
+          card.textContent = `${s.title} (${s.grade_band})`;
+          card.style.cursor = 'pointer';
+          card.addEventListener('click', async () => {
+            const lessons = await fetchLessons(s.id);
+            renderLessons(lessons);
+          });
+          container.appendChild(card);
+        });
+      }
+
+      function renderLessons(lessons) {
+        const container = document.getElementById('lessons');
+        container.innerHTML = '';
+        lessons.forEach((l) => {
+          const card = document.createElement('div');
+          card.className = 'card';
+          card.textContent = `${l.title} — ${l.description || ''}`;
+          container.appendChild(card);
+        });
+      }
+
+      (async () => {
+        try {
+          const user = await fetchMe();
+          document.getElementById('welcome').textContent = `Welcome, ${user.full_name} (Band: ${user.grade_band})`;
+          const subjects = await fetchSubjects();
+          renderSubjects(subjects);
+        } catch (err) {
+          console.error(err);
+          window.location.href = '/login.html';
+        }
+      })();
+    </script>
+  </body>
+</html>
